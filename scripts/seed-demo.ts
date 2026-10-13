@@ -66,7 +66,7 @@ async function main() {
         brand_theme_json: { theme_key: "kodo", note: "DEMO theme placeholder; real logo/fonts pending" },
       },
       { id: brandOther, organization_id: organization, code: "DEMOB", name: "DEMO Brand B", is_demo: true },
-    ]),
+    ], { defaultToNull: false }), // 행마다 없는 컬럼은 NULL 이 아니라 DB 기본값 사용
   );
   await must(
     "stores",
