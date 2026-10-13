@@ -39,6 +39,11 @@ Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · Supabase (Postgres + 
    npm run dev             # http://localhost:3000
    ```
 
+**Vercel 배포 시 자동 처리:** Supabase 연동 변수는 Sensitive 라서 `vercel env pull` 로는 실제 값이 내려오지 않는다.
+그래서 Production 빌드(`npm run vercel-build` → `scripts/predeploy.ts`)가 마이그레이션을 적용하고,
+`DEMO_MODE=true` 이면 DEMO 시드도 실행한다. Preview 빌드는 DB 를 건드리지 않는다. 프레임워크는 `vercel.json` 에 고정.
+로컬에서 직접 실행하려면 Supabase 대시보드(Project Settings → API / Database)의 값을 `.env.local` 에 직접 넣는다.
+
 마이그레이션은 `ms_meta.applied_migrations` 에 이력을 남긴다. **이미 적용된 파일은 수정하지 말고 새 번호 파일을 추가한다** (수정 시 runner 가 중단).
 
 ## 데모 로그인
