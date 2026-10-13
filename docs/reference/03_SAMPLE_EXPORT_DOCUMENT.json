@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "purpose": "Illustrative export intermediate representation, not a real approved manual",
+  "scope": "individual",
+  "format": "pptx",
+  "language": "en",
+  "brand": {"id": "demo-brand", "name": "KODO KODO", "theme_key": "kodo"},
+  "manuals": [
+    {
+      "manual_id": "demo-manual-galbi",
+      "version_id": "demo-version-1",
+      "document_code": "DEMO-KK-MAIN-001",
+      "title": "Galbi Serving Procedure",
+      "version": "DRAFT-DEMO",
+      "station": "Main",
+      "ingredients": [{"name": "Galbi", "quantity": null, "unit": null}],
+      "preparations": [{"ingredient": "Galbi", "before_image": null, "during_image": null, "after_image": null, "specs": {}}],
+      "cooking_steps": [],
+      "storage_standards": [
+        {"product_state": "cooked", "storage_method": null, "temperature_min_c": null, "temperature_max_c": null, "shelf_life_value": null, "shelf_life_unit": null, "shelf_life_start_event": null, "verification_status": "needs_hq_confirmation"}
+      ],
+      "serving_standards": {"quantity": 6, "unit": "pcs", "serving_context": "Galbi standard serving", "verification_status": "needs_hq_confirmation"},
+      "quality_acceptance_criteria": [],
+      "warnings": [],
+      "approved_by": null,
+      "approved_at": null,
+      "status": "draft"
+    }
+  ],
+  "output_options": {"toc": false, "cover": true, "draft_watermark": true, "template_version": "demo-v1"}
+}
