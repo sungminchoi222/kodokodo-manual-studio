@@ -52,7 +52,8 @@ function temperature(s: StorageStandardView, draft: boolean) {
 function shelfLife(s: StorageStandardView, draft: boolean) {
   if (s.shelf_life_value === null || s.shelf_life_unit === null || !s.shelf_life_start_event) return draft ? NEEDS : "—";
   const from = s.shelf_life_start_event === "custom" ? s.start_event_description : SHELF_LIFE_EVENT_LABEL[s.shelf_life_start_event];
-  return `${s.shelf_life_value} ${s.shelf_life_unit} from ${from}`;
+  const unit = s.shelf_life_value === 1 ? s.shelf_life_unit.replace(/s$/, "") : s.shelf_life_unit;
+  return `${s.shelf_life_value} ${unit} from ${from}`;
 }
 
 function portion(s: ServingStandardView, draft: boolean) {
@@ -231,44 +232,30 @@ export function ManualDocument({
           {content.storage_standards.length === 0 ? (
             <p className="mt-2">{NEEDS}</p>
           ) : (
-            <div className="mt-2 overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="border-b-2 border-stone-800 text-left">
-                    <th className="py-1 pr-2">State</th>
-                    <th className="py-1 pr-2">Storage</th>
-                    <th className="py-1 pr-2">Temperature</th>
-                    <th className="py-1 pr-2">Use within</th>
-                    <th className="py-1">Label / container / disposal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {content.storage_standards.map((s, i) => (
-                    <tr key={i} className="border-b border-stone-200 align-top">
-                      <td className="py-2 pr-2 font-semibold">
-                        {PRODUCT_STATE_LABEL[s.product_state]}
-                        {s.product_state_note && <span className="block text-xs font-normal text-stone-500">{s.product_state_note}</span>}
-                        <Verified v={s.verified} draft={draft} />
-                      </td>
-                      <td className="py-2 pr-2">
-                        {s.storage_method ? STORAGE_METHOD_LABEL[s.storage_method] : val(null, draft)}
-                        {s.storage_method_note && <span className="block text-xs text-stone-500">{s.storage_method_note}</span>}
-                      </td>
-                      <td className="py-2 pr-2 whitespace-nowrap">{temperature(s, draft)}</td>
-                      <td className="py-2 pr-2">{shelfLife(s, draft)}</td>
-                      <td className="py-2 text-xs text-stone-700">
-                        {[s.label_instructions && `Label: ${s.label_instructions}`, s.container_and_cover && `Container: ${s.container_and_cover}`, s.disposal_rule && `Discard: ${s.disposal_rule}`]
-                          .filter(Boolean)
-                          .map((t, j) => (
-                            <span key={j} className="block">
-                              {t}
-                            </span>
-                          ))}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {content.storage_standards.map((s, i) => (
+                <div key={i} className="break-inside-avoid rounded-xl border border-stone-200 p-4">
+                  <p className="text-lg font-bold">
+                    {PRODUCT_STATE_LABEL[s.product_state]}
+                    {s.product_state_note && <span className="ml-2 text-sm font-normal text-stone-500">{s.product_state_note}</span>}
+                  </p>
+                  <Verified v={s.verified} draft={draft} />
+                  <dl className="mt-2 grid grid-cols-[7.5rem_1fr] gap-x-3 gap-y-1 text-sm">
+                    <dt className="text-stone-500">Storage</dt>
+                    <dd>
+                      {s.storage_method ? STORAGE_METHOD_LABEL[s.storage_method] : val(null, draft)}
+                      {s.storage_method_note && <span className="block text-xs text-stone-500">{s.storage_method_note}</span>}
+                    </dd>
+                    <dt className="text-stone-500">Temperature</dt>
+                    <dd className="font-semibold">{temperature(s, draft)}</dd>
+                    <dt className="text-stone-500">Use within</dt>
+                    <dd className="font-semibold">{shelfLife(s, draft)}</dd>
+                    {s.label_instructions && (<><dt className="text-stone-500">Label</dt><dd>{s.label_instructions}</dd></>)}
+                    {s.container_and_cover && (<><dt className="text-stone-500">Container</dt><dd>{s.container_and_cover}</dd></>)}
+                    {s.disposal_rule && (<><dt className="text-stone-500">Discard</dt><dd className="text-red-800">{s.disposal_rule}</dd></>)}
+                  </dl>
+                </div>
+              ))}
             </div>
           )}
         </section>

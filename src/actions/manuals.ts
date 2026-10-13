@@ -37,6 +37,13 @@ async function forManual(manualId: string, action: Action) {
 
 const NOT_ALLOWED = "You do not have permission for this manual.";
 
+/** 발행된 매뉴얼의 초안(본문·기준·메타)을 고치면 상태를 draft 로 되돌린다. 발행본은 그대로. */
+async function markDraftChanged(ctx: NonNullable<Awaited<ReturnType<typeof forManual>>>) {
+  if (ctx.manual.review_status === "published") {
+    await ctx.supabase.from("manuals").update({ review_status: "draft" }).eq("id", ctx.manual.id);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // draft body
 // ---------------------------------------------------------------------------
@@ -60,10 +67,7 @@ export async function saveDraftContent(
   const row = data?.[0];
   if (!row) return fail("CONFLICT: this draft was changed by someone else. Reload to get the latest version.");
 
-  // 발행 후 초안을 고치면 상태를 다시 draft 로 (발행본은 그대로)
-  if (ctx.manual.review_status === "published") {
-    await ctx.supabase.from("manuals").update({ review_status: "draft" }).eq("id", manualId);
-  }
+  await markDraftChanged(ctx);
   revalidatePath("/hq/manuals/[id]/preview", "page");
   revalidatePath("/hq/manuals/[id]/approve", "page");
   return { ok: true, data: { version: row.optimistic_version } };
@@ -116,6 +120,7 @@ export async function saveManualMeta(manualId: string, input: z.input<typeof met
     .eq("manual_id", manualId)
     .select("optimistic_version")
     .returns<{ optimistic_version: number }[]>();
+  await markDraftChanged(ctx);
   refresh();
   return { ok: true, data: { version: data?.[0]?.optimistic_version ?? 0 } };
 }
@@ -198,6 +203,7 @@ export async function saveStorageStandard(
     );
   }
   if (!data?.length) return fail(NOT_ALLOWED);
+  await markDraftChanged(ctx);
   refresh();
   return { ok: true };
 }
@@ -207,6 +213,7 @@ export async function deleteStorageStandard(manualId: string, rowId: string): Pr
   if (!ctx) return fail(NOT_ALLOWED);
   const draftId = await draftIdOf(ctx);
   await ctx.supabase.from("storage_standards").delete().eq("id", rowId).eq("draft_id", draftId ?? "");
+  await markDraftChanged(ctx);
   refresh();
   return { ok: true };
 }
@@ -228,6 +235,7 @@ export async function saveServingStandard(
   const { data, error } = await q;
   if (error) return fail(error.message);
   if (!data?.length) return fail(NOT_ALLOWED);
+  await markDraftChanged(ctx);
   refresh();
   return { ok: true };
 }
@@ -237,6 +245,7 @@ export async function deleteServingStandard(manualId: string, rowId: string): Pr
   if (!ctx) return fail(NOT_ALLOWED);
   const draftId = await draftIdOf(ctx);
   await ctx.supabase.from("serving_standards").delete().eq("id", rowId).eq("draft_id", draftId ?? "");
+  await markDraftChanged(ctx);
   refresh();
   return { ok: true };
 }

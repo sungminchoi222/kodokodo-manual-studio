@@ -15,7 +15,7 @@ Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · Supabase (Postgres + 
 |---|---|---|
 | 1 | 스키마/RLS/트리거, RBAC, 시드, 라우트 골격 | ✅ |
 | 2 | Field Quick/Guided Capture, 업로드, HQ Inbox | ✅ |
-| 3 | Manual Builder, Product Standards 폼, 발행 검증, 불변 버전 | ⏳ |
+| 3 | Manual Builder, Product Standards 폼, 발행 검증, 불변 버전 | ✅ |
 | 4 | ExportDocument 모델 + mapper + 브랜드 템플릿 | ⏳ |
 | 5 | 개별 PPTX/PDF 렌더러 | ⏳ |
 | 6 | Combined 출력 + export history | ⏳ |
