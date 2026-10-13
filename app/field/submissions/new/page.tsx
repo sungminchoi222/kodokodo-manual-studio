@@ -1,11 +1,17 @@
 import Link from "next/link";
+import { storeRoles } from "@/auth/rbac";
 import { requireSession } from "@/auth/session";
-import { Planned } from "@/components/planned";
+import { NewSubmissionForm } from "@/components/field/new-submission-form";
 
 export default async function NewSubmissionPage({ searchParams }: PageProps<"/field/submissions/new">) {
-  await requireSession("field");
+  const { actor, stores, brands } = await requireSession("field");
   const { mode } = await searchParams;
   const current = mode === "quick" ? "quick" : "guided";
+
+  const brandName = new Map(brands.map((b) => [b.id, b.name]));
+  const myStores = stores
+    .filter((s) => s.status === "active" && storeRoles(actor, s.id).size > 0)
+    .map((s) => ({ id: s.id, label: `${brandName.get(s.brand_id) ?? ""} · ${s.name}` }));
 
   return (
     <>
@@ -21,16 +27,16 @@ export default async function NewSubmissionPage({ searchParams }: PageProps<"/fi
           </Link>
         ))}
       </div>
+      <p className="mt-3 text-sm text-stone-600">
+        {current === "guided"
+          ? "Step by step: ingredients → BEFORE / DURING / AFTER prep photos → cooking steps → final product."
+          : "Send photos, videos, notes or a voice memo freely. HQ will organise it."}
+      </p>
       <div className="mt-6">
-        {current === "guided" ? (
-          <Planned step={2} title="Guided capture wizard">
-            Basics → Ingredient list → BEFORE / DURING / AFTER per ingredient → Cooking steps → Final product → Review &amp; submit.
-            Draft save and upload retry.
-          </Planned>
+        {myStores.length === 0 ? (
+          <p className="text-sm text-red-700">You are not assigned to a store.</p>
         ) : (
-          <Planned step={2} title="Quick capture">
-            Title, store, station, multiple photos/videos, text or voice memo, related manual.
-          </Planned>
+          <NewSubmissionForm key={current} mode={current} stores={myStores} />
         )}
       </div>
     </>

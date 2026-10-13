@@ -236,6 +236,26 @@ await expectRows("other-brand field cannot read object", U.fieldOther, `select *
 await expectRows("author reads own object", U.field, `select * from storage.objects`, 1);
 await expectErr("storage_key immutable", U.field, `update media_assets set storage_key = '${KK}/z.jpg' where id = '${MA}'`);
 
+// ---- 0004: 제출 후 미디어 잠금 ----
+const MB = "80000000-0000-4000-8000-000000000002";
+await expectOk("field registers second media", U.field,
+  `insert into media_assets (id, brand_id, submission_id, owner_id, storage_key, kind, mime) values ('${MB}', '${KK}', '${S2}', '${U.field}', '${KK}/s/${S2}/b.jpg', 'image', 'image/jpeg')`);
+await expectErr("field cannot link own media to another draft-less entity (S1 submitted)", U.field,
+  `insert into media_links (media_id, brand_id, entity_type, entity_id, role) values ('${MB}', '${KK}', 'submission', '${S1}', 'attachment')`);
+await expectOk("field marks media uploaded while draft", U.field,
+  `update media_assets set upload_status = 'uploaded' where id = '${MA}'`);
+await expectOk("field submits quick capture", U.field, `update submissions set status = 'submitted' where id = '${S2}'`);
+await expectRows("field cannot unlink media after submit", U.field,
+  `delete from media_links where media_id = '${MA}' returning id`, 0);
+await expectRows("field cannot recaption after submit", U.field,
+  `update media_links set caption = 'x' where media_id = '${MA}' returning id`, 0);
+await expectRows("field cannot change media after submit", U.field,
+  `update media_assets set upload_status = 'failed' where id = '${MA}' returning id`, 0);
+await expectOk("HQ links field media to manual draft", U.editor,
+  `insert into media_links (media_id, brand_id, entity_type, entity_id, role) values ('${MA}', '${KK}', 'manual_draft', '${D1}', 'reference')`);
+await expectRows("HQ reads submitted field media", U.editor, `select * from media_assets where id = '${MA}'`, 1);
+await expectRows("other-brand field cannot read media rows", U.fieldOther, `select * from media_assets`, 0);
+
 // ---- export jobs ----
 await expectErr("field cannot request draft export", U.field,
   `insert into export_jobs (requested_by, brand_id, format, scope, locale, ordered_version_ids_json, template_version, is_draft_export) values ('${U.field}', '${KK}', 'pdf', 'individual', 'en', '["${V1}"]', 't1', true)`);
