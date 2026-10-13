@@ -12,3 +12,7 @@ next-env.d.ts
 .env.local
 .env.*.local
 .vercel/
+
+.vercel
+.env*
+!.env.example
