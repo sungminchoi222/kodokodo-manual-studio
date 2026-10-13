@@ -173,6 +173,7 @@ export interface Manual {
   display_language: Locale;
   document_code: string;
   review_status: ReviewStatus;
+  review_comment: string | null;
   active_version_id: Uuid | null;
   created_by: Uuid;
   created_at: Timestamp;

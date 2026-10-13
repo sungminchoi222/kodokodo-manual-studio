@@ -1,11 +1,13 @@
 import Link from "next/link";
+import { isHq } from "@/auth/rbac";
 import { requireSession } from "@/auth/session";
+import { NewManualForm } from "@/components/hq/new-manual-form";
 import { StatusBadge } from "@/components/planned";
 import { createSupabaseServerClient } from "@/db/supabase/server";
 import type { Manual } from "@/domain/types";
 
 export default async function HqManualsPage() {
-  const { brands } = await requireSession("hq");
+  const { brands, actor } = await requireSession("hq");
   const supabase = await createSupabaseServerClient();
   const { data: manuals, error } = await supabase
     .from("manuals")
@@ -18,6 +20,9 @@ export default async function HqManualsPage() {
   return (
     <>
       <h1 className="text-xl font-bold">Manuals</h1>
+      <div className="mt-4">
+        <NewManualForm brands={brands.filter((b) => isHq(actor, { brandId: b.id, organizationId: b.organization_id })).map((b) => ({ id: b.id, name: b.name }))} />
+      </div>
       {error && <p className="mt-4 text-sm text-red-700">Could not load manuals.</p>}
       <div className="mt-4 overflow-x-auto rounded-xl border border-stone-200 bg-white">
         <table className="w-full text-left text-sm">

@@ -1,26 +1,24 @@
 import { notFound } from "next/navigation";
 import { requireSession } from "@/auth/session";
-import { Planned } from "@/components/planned";
-import { createSupabaseServerClient } from "@/db/supabase/server";
-import type { Manual } from "@/domain/types";
+import { ManualDocument } from "@/components/manual-document";
+import { getManualOr404, getMediaInfo, getVersion } from "@/db/manuals";
+import { readSnapshot } from "@/manual/snapshot";
 
+/** 현장: 현재 승인본(active version)의 스냅샷만 표시. 초안은 RLS 로 접근 불가. */
 export default async function FieldManualPage({ params }: PageProps<"/field/manuals/[id]">) {
   await requireSession("field");
   const { id } = await params;
-  const supabase = await createSupabaseServerClient();
-  const { data: manual } = await supabase.from("manuals").select("*").eq("id", id).maybeSingle<Manual>();
-  // RLS 로 걸러진 경우와 존재하지 않는 경우를 구분하지 않는다 (존재 여부 노출 방지)
-  if (!manual || !manual.active_version_id) notFound();
+  const manual = await getManualOr404(id);
+  if (!manual.active_version_id) notFound();
+  const version = await getVersion(manual.active_version_id);
+  if (!version || version.status !== "published") notFound();
+  const { content, error } = readSnapshot(version.content_snapshot_json);
+  if (!content) return <p className="text-sm text-red-700">This manual cannot be displayed ({error}). Contact HQ.</p>;
+  const media = await getMediaInfo(Object.keys(content.media));
 
   return (
-    <>
-      <p className="text-xs text-stone-500">{manual.document_code}</p>
-      <h1 className="text-xl font-bold">{manual.title}</h1>
-      <div className="mt-6">
-        <Planned step={3} title="Approved manual viewer">
-          Renders the published snapshot of the active version.
-        </Planned>
-      </div>
-    </>
+    <div className="-mx-4 sm:mx-0">
+      <ManualDocument content={content} media={media} mode="published" />
+    </div>
   );
 }

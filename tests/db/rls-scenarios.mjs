@@ -273,6 +273,53 @@ await expectRows("approver insert version returning id", U.approver,
    values ('${M2}', '${KK}', 'v1.0', 'en', 'KK-MAIN-099', '{}', 'x', 'Initial', '${U.approver}', now()) returning id`, 1);
 await expectRows("still hidden from other brand", U.fieldOther, `select * from submissions`, 0);
 
+// ---- 0006: publish_manual ----
+{
+  const A2 = "10000000-0000-4000-8000-000000000006";
+  await as(null, `insert into auth.users (id, email) values ('${A2}', 'a2@x')`);
+  await as(null, `insert into memberships (user_id, organization_id, brand_id, role) values ('${A2}', '${ORG}', '${KK}', 'hq_approver')`);
+  const M3 = "60000000-0000-4000-8000-000000000003";
+  const D3 = "61000000-0000-4000-8000-000000000003";
+  await as(U.editor, `insert into manuals (id, brand_id, title, station, manual_type, document_code, created_by) values ('${M3}', '${KK}', 'Pub', 'Main', 'recipe', 'KK-MAIN-050', '${U.editor}')`);
+  await as(U.editor, `insert into manual_drafts (id, manual_id, brand_id, draft_json) values ('${D3}', '${M3}', '${KK}', '{"schema_version":1}')`);
+  await as(U.editor, `insert into storage_standards (brand_id, draft_id, product_state, storage_method, temperature_max_c, shelf_life_value, shelf_life_unit, shelf_life_start_event) values ('${KK}', '${D3}', 'cooked', 'chilled', 5, 2, 'days', 'cooked_at')`);
+  await as(U.editor, `insert into serving_standards (brand_id, draft_id, quantity, unit) values ('${KK}', '${D3}', 6, 'pcs')`);
+  await expectRows("BGC manager cannot read Makati media before publish", U.manager, `select * from media_assets where id = '${MA}'`, 0);
+
+  const stamp = async (who) => (await as(who, `select draft_standards_stamp('${D3}') as s`)).rows[0].s;
+  const ver = async () => (await as(null, `select optimistic_version as v from manual_drafts where id = '${D3}'`)).rows[0].v;
+  const publish = (label, st, v, reason = null) =>
+    `select publish_manual('${M3}', ${v}, '${st}', '${label}', 'Initial', ${reason ? `'${reason}'` : "null"}, null, now(), '{"schema_version":1}'::jsonb, array['${MA}']::uuid[]) as id`;
+
+  await expectErr("publish blocked while standards unverified", U.approver, publish("v1.0", await stamp(U.approver), await ver()));
+  await expectOk("approver verifies storage", U.approver, `update storage_standards set verified_by = '${U.approver}', verified_at = now() where draft_id = '${D3}'`);
+  await expectOk("second approver verifies serving", A2, `update serving_standards set verified_by = '${A2}', verified_at = now() where draft_id = '${D3}'`);
+  const st1 = await stamp(U.editor);
+  await expectErr("editor cannot publish", U.editor, publish("v1.0", st1, await ver()));
+  await expectErr("stale draft version rejected", U.approver, publish("v1.0", st1, (await ver()) - 1));
+  await expectErr("wrong stamp rejected", U.approver, publish("v1.0", "deadbeef", await ver()));
+  const r1 = await expectOk("approver publishes v1.0 (keeps other approver's verification)", U.approver, publish("v1.0", st1, await ver()));
+  const V3 = r1?.rows[0]?.id;
+  await expectRows("manual active version set", null, `select * from manuals where id = '${M3}' and active_version_id = '${V3}' and review_status = 'published'`, 1);
+  await expectRows("standards copied to version with verifiers", null,
+    `select * from serving_standards where version_id = '${V3}' and verified_by = '${A2}' union all select * from serving_standards where 1=0`, 1);
+  await expectRows("storage copied", null, `select * from storage_standards where version_id = '${V3}' and verified_by = '${U.approver}'`, 1);
+  await expectRows("BGC manager reads media via published link", U.manager, `select * from media_assets where id = '${MA}'`, 1);
+  await expectRows("BGC manager can read object via published link", U.manager, `select * from storage.objects where name like '%/a.jpg'`, 1);
+
+  await expectOk("editor changes draft standard after publish", U.editor, `update storage_standards set temperature_max_c = 4 where draft_id = '${D3}'`);
+  await expectRows("published copy unchanged", null, `select * from storage_standards where version_id = '${V3}' and temperature_max_c = 5`, 1);
+  await expectErr("old stamp rejected after change", U.approver, publish("v1.1", st1, await ver(), "Temp"));
+  await expectErr("unverified after change", U.approver, publish("v1.1", await stamp(U.approver), await ver(), "Temp"));
+  await as(U.approver, `update storage_standards set verified_by = '${U.approver}', verified_at = now() where draft_id = '${D3}'`);
+  await expectErr("revision reason required for v1.1", U.approver, publish("v1.1", await stamp(U.approver), await ver()));
+  const r2 = await expectOk("approver publishes v1.1", U.approver, publish("v1.1", await stamp(U.approver), await ver(), "Lower temperature"));
+  await expectRows("v1.0 archived", null, `select * from manual_versions where id = '${V3}' and status = 'archived'`, 1);
+  await expectRows("field sees only latest version", U.field, `select * from manual_versions where manual_id = '${M3}'`, 1);
+  await expectRows("field reads latest version standards", U.field,
+    `select * from storage_standards where version_id = '${r2?.rows[0]?.id}' and temperature_max_c = 4`, 1);
+}
+
 // ---- export jobs ----
 await expectErr("field cannot request draft export", U.field,
   `insert into export_jobs (requested_by, brand_id, format, scope, locale, ordered_version_ids_json, template_version, is_draft_export) values ('${U.field}', '${KK}', 'pdf', 'individual', 'en', '["${V1}"]', 't1', true)`);
