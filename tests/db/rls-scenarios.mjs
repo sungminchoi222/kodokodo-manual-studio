@@ -256,6 +256,23 @@ await expectOk("HQ links field media to manual draft", U.editor,
 await expectRows("HQ reads submitted field media", U.editor, `select * from media_assets where id = '${MA}'`, 1);
 await expectRows("other-brand field cannot read media rows", U.fieldOther, `select * from media_assets`, 0);
 
+// ---- 0005: INSERT ... RETURNING (supabase-js .insert().select()) ----
+await expectRows("field insert submission returning id", U.field,
+  `insert into submissions (brand_id, store_id, station, capture_mode, title, submitted_by) values ('${KK}', '${MAKATI}', 'Main', 'guided', 'R', '${U.field}') returning id`, 1);
+await expectRows("field insert media_asset returning id", U.field,
+  `with s as (insert into submissions (brand_id, store_id, station, capture_mode, title, submitted_by) values ('${KK}', '${MAKATI}', 'Main', 'quick', 'R2', '${U.field}') returning id)
+   select 1`, 1);
+const S3 = (await as(U.field, `select id from submissions where title = 'R2'`)).rows[0].id;
+await expectRows("field insert media returning", U.field,
+  `insert into media_assets (brand_id, submission_id, owner_id, storage_key, kind, mime) values ('${KK}', '${S3}', '${U.field}', '${KK}/s/${S3}/r.jpg', 'image', 'image/jpeg') returning id`, 1);
+await expectRows("editor insert manual returning id", U.editor,
+  `insert into manuals (brand_id, title, station, manual_type, document_code, created_by) values ('${KK}', 'R', 'Main', 'recipe', 'KK-MAIN-099', '${U.editor}') returning id`, 1);
+const M2 = (await as(U.editor, `select id from manuals where document_code = 'KK-MAIN-099'`)).rows[0].id;
+await expectRows("approver insert version returning id", U.approver,
+  `insert into manual_versions (manual_id, brand_id, version_label, locale, document_code, content_snapshot_json, content_checksum, change_log, approved_by, approved_at)
+   values ('${M2}', '${KK}', 'v1.0', 'en', 'KK-MAIN-099', '{}', 'x', 'Initial', '${U.approver}', now()) returning id`, 1);
+await expectRows("still hidden from other brand", U.fieldOther, `select * from submissions`, 0);
+
 // ---- export jobs ----
 await expectErr("field cannot request draft export", U.field,
   `insert into export_jobs (requested_by, brand_id, format, scope, locale, ordered_version_ids_json, template_version, is_draft_export) values ('${U.field}', '${KK}', 'pdf', 'individual', 'en', '["${V1}"]', 't1', true)`);
